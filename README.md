@@ -570,6 +570,12 @@ Even if the server ip changes we should keep track of it via Dynamic DNS. I´m p
 apt remove -y apt remove wpasupplicant wireless-tools wireless-regdb hostapd iw crda
 ```
 
+### Reverse SSH
+
+In case the Wireguard box sits behind a NAT firewall and you can't control port forwarding rules you can setup a reverse SSH tunnel.
+
+I personally use sidedoor, which is an easy way to setup and maintain SSH tunnels, just follow the official documentation [here](https://github.com/daradib/sidedoor)
+
 # References
 
 In orther to build this how to I've used several references, from blogs, to other how-to to man pages.
