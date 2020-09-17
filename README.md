@@ -561,7 +561,7 @@ Even if the server ip changes we should keep track of it via Dynamic DNS. I´m p
   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
   # Update YDNS every 15 minutes everyday
-  */15 * * * * /path/to/script/updater.sh > /dev/null
+  */15 * * * * /usr/local/bin/updater.sh > /dev/null
   ```
 
 ### Remove unused packages
