@@ -2,7 +2,13 @@
 
 ## Intro
 
-This repo is a how-to set a WireGuard site-2-site vpn with Nanopi
+This repo is a how-to set a WireGuard site-2-site vpn with Nanopi machines.
+
+Before moving forward here is a diagram of what is being implemented here
+
+![architecture](images/wireguard.png)
+
+So the intention of this solution is to make lan client from both sides able to reach each other as well as set gateway in site Y as the default route to reach internet for both sites.
 
 ## Requirements
 
@@ -57,10 +63,10 @@ The steps below should be performed in all systems that you have.
   apt install -y wireguard
   ```
 
-* Install nftables
+* Install iptables
 
   ```shell
-  apt install -y nftables
+  apt install -y iptables
   ```
 
 ## WireGuard Server Setup
@@ -276,19 +282,15 @@ The steps below should be performed in all systems that you have.
 
 At this point, you should be able to do ping the server from the client and through your new VPN.
 
-```shell
-
-```
-
-But still work to do, as what we want to achieve is that the NanoPI client acts as a gateway for all our network connections.
+Nonetheless, still work to do, as WireGuard just creates a network interface that connects to the end point but in order to have a full VPN solution we need to set NanoPI to act as a gateway for all our network connections.
 
 ## Setup LAN interface
 
 * Set static IP for the LAN interface
 
-```shell
-
-```
+  ```shell
+  xxx
+  ```
 
 ## DHCP Server
 
@@ -477,7 +479,7 @@ As logrotate is setup to run daily via cron we don't have to do any further chan
 
 ### Firewall
 
-Edit the content of `/etc/nftables.conf` and add:
+Edit the content of `/etc/iptables.conf` and add:
 
 ```shell
 # firewall
@@ -560,7 +562,7 @@ Even if the server ip changes we should keep track of it via Dynamic DNS. I´m p
   ```shell
   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-  # Update YDNS every 15 minutes everyday
+  # Update YDNS every 15 minutes
   */15 * * * * /usr/local/bin/updater.sh > /dev/null
   ```
 
