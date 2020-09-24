@@ -413,6 +413,64 @@ Nonetheless, still work to do, as WireGuard just creates a network interface tha
   systemctl enable isc-dhcp-server.service
   ```
 
+## Dynamic DNS
+
+A dynamic DNS server is useful when we can't have static IP addresses on the public network. This solution assumes that we don't have them and we actually don't need them because it is enough to have a dynamic DNS name setup to be good to go. I'm personally using [YDNS](https://ydns.io) but there are hundreds of services available out there.
+
+We have to run this in both boxes with different names (of course).
+
+* Installing curl
+
+  ```shell
+  apt install -y curl
+  ```
+
+* Get the YDNS updater
+
+  ```shell
+  curl -o /usr/local/bin/updater.sh https://raw.githubusercontent.com/ydns/bash-updater/master/updater.sh
+  ```
+
+* Give it execution permissions
+
+  ```shell
+  chmod +x /usr/local/bin/updater.sh
+  ```
+
+* Edit the file and set your information
+
+  ```shell
+  # nano /usr/local/bin/updater.sh
+  [...]
+  YDNS_USER="<EMAIL>"
+  YDNS_PASSWD="<SECRET>"
+  YDNS_HOST="<HOST>" # This have to be different on both boxes
+  [...]
+  ```
+
+* Create a cron entry by creating a cron file
+
+  ```shell
+  nano /etc/cron.d/ydns-updater
+  ```
+
+  With the content:
+
+  ```shell
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+  # Update YDNS every 15 minutes
+  */15 root * * * * /usr/local/bin/updater.sh -V
+  ```
+
+* Finally enable cron
+
+  ```shell
+  systemctl enable cron
+  ```
+
+# Extra good practices and optional features
+
 ## Reverse SSH to WireGuard Client
 
 As we want to be able to control the WireGuard client box from our local network without relaying on the VPN network, this solution setups up a reverse SSH tunnel.
@@ -503,65 +561,7 @@ Now we can check sidedoor output to see if there are any errors by `systemctl st
 ssh <USER>@<WIREGUARD_CLIENT_PUBLIC_DNS> -W localhost:<BIND_PORT_ON_WIREGUARD_SERVER> <USER>@<WIREGUARD_SERVER_LAN_IP>
 ```
 
-## Dynamic DNS
-
-A dynamic DNS server is useful when we can't have static IP addresses on the public network. This solution assumes that we don't have them and we actually don't need them because it is enough to have a dynamic DNS name setup to be good to go. I'm personally using [YDNS](https://ydns.io) but there are hundreds of services available out there.
-
-We have to run this in both boxes with different names (of course).
-
-* Installing curl
-
-  ```shell
-  apt install -y curl
-  ```
-
-* Get the YDNS updater
-
-  ```shell
-  curl -o /usr/local/bin/updater.sh https://raw.githubusercontent.com/ydns/bash-updater/master/updater.sh
-  ```
-
-* Give it execution permissions
-
-  ```shell
-  chmod +x /usr/local/bin/updater.sh
-  ```
-
-* Edit the file and set your information
-
-  ```shell
-  # nano /usr/local/bin/updater.sh
-  [...]
-  YDNS_USER="<EMAIL>"
-  YDNS_PASSWD="<SECRET>"
-  YDNS_HOST="<HOST>" # This have to be different on both boxes
-  [...]
-  ```
-
-* Create a cron entry by creating a cron file
-
-  ```shell
-  nano /etc/cron.d/ydns-updater
-  ```
-
-  With the content:
-
-  ```shell
-  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-  # Update YDNS every 15 minutes
-  */15 root * * * * /usr/local/bin/updater.sh -V
-  ```
-
-* Finally enable cron
-
-  ```shell
-  systemctl enable cron
-  ```
-
-## Extra good practices setup
-
-### Unattended security updates
+## Unattended security updates
 
 Security updates are crucial to keep our system safe from threads. Eventhow we don't have so many services open to the world, one bug is enough to allow attackers to break into our system.
 
@@ -576,7 +576,7 @@ To test the package behaviour we can run:
 unattended-upgrade --debug --dry-run
 ```
 
-### Log rotate
+## Log rotate
 
 Armbian in Nanopi has the logs located in two directories. The first is a ram disk (`/var/log/`) which is usually around 50MB size. This is definitely not enough to keep our logs for more than a week, and depending on how much connection we have a day will not even hold 24h of logs before you start getting errors such as:
 
@@ -655,16 +655,32 @@ the `-d` flag will list each log file it is considering to rotate.
 
 As logrotate is setup to run daily via cron we don't have to do any further change.
 
-### SSH hardening
+## SSH hardening
 
+These are just some good practices to hardening our SSH deamons, specially when they are publically available.
+
+Add those lines somewhere inside the `/etc/ssh/sshd_config` file:
+
+```shell
+# Disable root login
 PermitRootLogin no
 
-Lock down the local SSH server by editing /etc/ssh/sshd_config.
-Disable password authentication (ChallengeResponseAuthentication no and PasswordAuthentication no).
-Limit daemon to only listen on localhost (ListenAddress ::1 and ListenAddress 127.0.0.1).
-To apply changes, restart or reload sshd, e.g., sudo service ssh reload.
+# Disable password authentication
+ChallengeResponseAuthentication no
+PasswordAuthentication no
 
-### Firewall
+# Limit daemon to only listen on localhost (only for WireGuard client when we enable reverse SSH)
+ListenAddress ::1
+ListenAddress 127.0.0.1
+```
+
+To apply the previous config just restart the SSH daemon:
+
+```shell
+systemctl restart ssh
+```
+
+## Firewall
 
 Edit the content of `/etc/iptables.conf` and add:
 
