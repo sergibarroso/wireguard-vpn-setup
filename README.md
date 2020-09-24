@@ -1,14 +1,18 @@
-# nanopi-vpn
+# Friendly WireGuard VPN
 
 ## Intro
 
-This repo is a how-to set a WireGuard site-2-site vpn with Nanopi machines.
+This repo is a how-to set a WireGuard site-2-site VPN with Nanopi machines.
 
-Before moving forward here is a diagram of what is being implemented here
+This solution connects both sites, secures the connection between both edge's LAN clients, and additionally, it routes all traffic going to the internet through site Y gateway as we can see in the following diagram.
 
 ![architecture](images/wireguard.png)
 
-So the intention of this solution is to make lan client from both sides able to reach each other as well as set gateway in site Y as the default route to reach internet for both sites.
+Is also good to keep in mind that for this solution, the client site acts as the source of internet connectivity and not the server site as should be expected. The reason for that is we have control over the gateway on the site Y but not on the site X.
+
+The solution is called `friendly vpn` because is perfect to send the client NanoPi to any friend in the world, and have access to their home LAN from your place, no setup from their side is required and you can also control the remote NanoPi from home.
+
+Quite cool, isn't it? :)
 
 ## Requirements
 
@@ -16,7 +20,9 @@ So the intention of this solution is to make lan client from both sides able to 
 * 2x MicroSD
 * [Armbian distro](https://www.armbian.com/nanopi-r2s/)
 
-## Copy OS to SD Card
+## OS Installation
+
+### Copy OS to SD Card
 
 I will document the process with Etcher to write Armbian image into SD cards.
 
@@ -25,19 +31,19 @@ I will document the process with Etcher to write Armbian image into SD cards.
 * Use Ether to write the Armbian image you should have already downloaded (if not check the requirements section for the link)
 * Once done, eject the card and insert it in the NanoPi R2S
 
-## Booting NanoPi R2S
+### Booting NanoPi R2S
 
 * Plug the ethernet cable
 * Plug the power cable
 * Armbian uses DHCP by default so once you know the IP address assigned from your DHCP server you can SSH into it
 * SSH into the box by `ssh root@<IP>` and the default password is `1234`
-* Immediately after login the first time it will ask the user to change `root` password and create a new normal user account
+* Immediately after login the first time it will ask the user to change `root` password and create a new regular user account
 
-## Basic Setup
+## Common setup
 
-The steps below should be performed in all systems that you have.
+Run the steps below on both NanoPi:
 
-* Set the host name
+* Set the hostname (replace `<NEW_HOSTNAME>` with the name you desire)
 
   ```shell
   sed -i 's/nanopi-r2s/<NEW_HOSTNAME>/g' /etc/hostname /etc/hosts
@@ -49,7 +55,7 @@ The steps below should be performed in all systems that you have.
   dpkg-reconfigure tzdata
   ```
 
-  And select the timezone your server it is located.
+  Select the timezone where each NanoPi is going to be located.
 
 * Upgrade the system to the latest version of all packages by running:
 
@@ -69,7 +75,7 @@ The steps below should be performed in all systems that you have.
   apt install -y iptables
   ```
 
-## WireGuard Server Setup
+## WireGuard Server setup
 
 * Create a directory to store the keys and set strict permissions
 
@@ -96,7 +102,7 @@ The steps below should be performed in all systems that you have.
   chmod 400 /etc/wireguard/keys/*.key
   ```
 
-* Create a wireguard config file
+* Create a WireGuard config file
 
   ```shell
   nano /etc/wireguard/wg0.conf
@@ -118,9 +124,42 @@ The steps below should be performed in all systems that you have.
   # The output of `wg genkey` for the server.
   PrivateKey = <SERVER_PRIVATE_KEY>
 
-  # Enable traffic to be passed from the client network to the private subnet of the server
-  PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
-  PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
+  # Set DNS resolver to our VPN client, preventing DNS leaks.
+  DNS = 10.222.0.2
+
+  # Route all traffic coming from the client network to the WireGuard interface
+  PreUp = sysctl -w net.ipv4.ip_forward=1
+
+  # Enable NAT:
+  PostUp = iptables -t nat -A POSTROUTING -o %i -j MASQUERADE
+
+  # Allowing any traffic from lan0 (internal) to go over %i (tunnel):
+  PostUp = iptables -A FORWARD -i lan0 -o %i -j ACCEPT
+
+  # Allowing traffic from %i (tunnel) to go back over lan0 (internal). Since we specify the state RELATED, ESTABLISHED it
+  # will be limited to connection initiated from the internal network. Blocking external traffic trying to initiate a new
+  # connection:
+  PostUp = iptables -A FORWARD -i %i -o lan0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+  # Allowing the NanoPi’s own loopback traffic:
+  PostUp = iptables -A INPUT -i lo -j ACCEPT
+
+  # Allowing computers on the local network to ping the NanoPi:
+  PostUp = iptables -A INPUT -i lan0 -p icmp -j ACCEPT
+
+  # Allowing SSH from the internal network:
+  PostUp = iptables -A INPUT -i lan0 -p tcp --dport 22 -j ACCEPT
+
+  # Allowing all traffic initiated by the NanoPi to return. This is the same state principal as earlier:
+  PostUp = iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+  # If traffic doesn’t match any of the the rules specified it will be dropped:
+  PostUp = iptables -P FORWARD DROP
+  PostUp = iptables -P INPUT DROP
+  PostUp = iptables -L
+
+  PreDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o lan0 -j MASQUERADE
+  PostDown = sysctl -w net.ipv4.ip_forward=0
 
   [Peer]
   # Configuration for the server's client Peer
@@ -129,18 +168,16 @@ The steps below should be performed in all systems that you have.
   PublicKey = <CLIENT_PUBLIC_KEY>
 
   # The IP address that this client is allowed to use.
-  AllowedIPs = 10.222.0.2/32,<CLIENT_LAN_NETWORK>
+  AllowedIPs = 10.222.0.2/32,0.0.0.0/0,::/0
 
   # Ensures that your home router does not kill the tunnel, by sending a ping
   # every 25 seconds.
   PersistentKeepalive = 25
   ```
 
-  Pay attention to the `<CLIENT_PUBLIC_KEY>` because we still don't have this. **Caution: don't use the server one**.
+  Pay attention to the `<CLIENT_PUBLIC_KEY>` because we still don't have this. **Caution: don't use the one from the server**.
 
-  Replace `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. Usually is `eth0` for WAN port and `lan0` for LAN port on the NanoPi R2S.
-
-  And finally `<CLIENT_LAN_NETWORK>` for the network address you will use for your client's network range. E.g. `192.168.0.0/24`
+  Replace `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port.
 
 ## WireGuard Client Setup
 
@@ -171,7 +208,7 @@ The steps below should be performed in all systems that you have.
   chmod 400 /etc/wireguard/keys/*.key
   ```
 
-* Create a wireguard config file
+* Create a WireGuardconfig file
 
   ```shell
   nano /etc/wireguard/wg0.conf
@@ -184,14 +221,19 @@ The steps below should be performed in all systems that you have.
   # Configuration for the client
 
   # The IP address that this client will have on the WireGuard network.
-  Address = 10.222.0.2/32
+  Address = 10.222.0.2/24
 
   # The private key you generated for the client previously.
   PrivateKey = <CLIENT_PRIVATE_KEY>
 
   # Enable traffic to be passed from the server network to the private subnet of the client
-  PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
-  PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
+  PreUp = sysctl -w net.ipv4.ip_forward=1
+
+  PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+  PreDown = sysctl -w net.ipv4.ip_forward=0
+
+  PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 
   [Peer]
   # Configuration for the server to connect to
@@ -203,7 +245,7 @@ The steps below should be performed in all systems that you have.
   Endpoint = <SERVER_PUBLIC_ENDPOINT>:<SERVER_PUBLIC_PORT>
 
   # The subnet this WireGuard VPN is in control of.
-  AllowedIPs = 0.0.0.0/0,::/0
+  AllowedIPs = 10.222.0.1/32
 
   # Ensures that your home router does not kill the tunnel, by sending a ping
   # every 25 seconds.
@@ -240,7 +282,7 @@ The steps below should be performed in all systems that you have.
   Cannot find device "wg0"
   ```
 
-* Check wireguard interface
+* Check WireGuardinterface
 
   ```shell
   # wg show
@@ -371,6 +413,152 @@ Nonetheless, still work to do, as WireGuard just creates a network interface tha
   systemctl enable isc-dhcp-server.service
   ```
 
+## Reverse SSH to WireGuard Client
+
+As we want to be able to control the WireGuard client box from our local network without relaying on the VPN network, this solution setups up a reverse SSH tunnel.
+
+To achieve that we're going to use sidedoor. Additionally, find the official repo and documentation [here](https://github.com/daradib/sidedoor)
+
+Sidedoor setup is very straight forward:
+
+* Installation **(on the client box)**
+
+  ```shell
+  apt install sidedoor
+  ```
+
+* Generate SSH private key to access the remote server **(on the client box)**
+
+  ```shell
+  ssh-keygen -t rsa -N '' -f /etc/sidedoor/id_rsa
+  ```
+
+* Edit sidedoor configuration file **(on the client box)**
+
+  ```shell
+  nano /etc/default/sidedoor
+  ```
+
+  We've to change `OPTIONS` and `REMOTE_SERVER`. So, for `OPTIONS` use:
+
+  ```shell
+  OPTIONS='-R <WIREGUARD_CLIENT_PUBLIC_DNS>:<BIND_PORT_ON_WIREGUARD_SERVER>:localhost:<WIREGUARD_CLIENT_SSHD_PORT> -p <WIREGUARD_SERVER_PUBLIC_PORT>'
+  ```
+
+  `<WIREGUARD_CLIENT_PUBLIC_DNS>`: The public DNS/IP for the WireGuard client box.
+
+  `<BIND_PORT_ON_WIREGUARD_SERVER>`: The port where WireGuard client SSHD will be binded on WireGuard server. Choose something higher than 1024.
+
+  `<WIREGUARD_CLIENT_SSHD_PORT>`: The port where SSHD is listening on the WireGuard client, usually 22.
+
+  `<WIREGUARD_SERVER_PUBLIC_PORT>`: The public port where SSHD for WireGuard server box is exposed. In case it's the standard 22 you can just remove the -p option.
+
+  For `REMOTE_SERVER` use:
+
+  ```shell
+  REMOTE_SERVER=<USER>@<WIREGUARD_SERVER_PUBLIC_DNS>
+  ```
+
+  `<USER>`: user to login on WireGuard server box.
+
+  `<WIREGUARD_SERVER_PUBLIC_DNS>`: The public DNS/IP for the WireGuard server box.
+
+* Add WireGuard public key to WireGuard server **(on the server box)**
+
+  In order to make the tunnel working without any user interaction we've to enable public key authentication to WireGuard Server's SSH daemon.
+  To do that, copy the content of the file `/etc/sidedoor/id_rsa.pub` on the WireGuard client box and paste it inside the desired user's `~/.ssh/authorized_keys` file inside WireGuard server box.
+
+* Enable forwarded ports on SSH deamon **(on the server box)**
+
+  SSH doesn’t by default allow remote hosts to forwarded ports. We're going to enable this only to the desired user by editing `/etc/ssh/sshd_config`:
+
+  ```shell
+  nano /etc/ssh/sshd_config
+  ```
+
+  Add the following lines at the bottom of the file:
+
+  ```shell
+  Match User <USER>
+    GatewayPorts yes
+  ```
+
+  `<USER>`: user specified on the sidedoor config file.
+
+* Restart SSHD service **(on the server box)**
+
+  ```shell
+  systemctl restart ssh
+  ```
+
+* Restart the sidedoor service to apply changes **(on the client box)**
+
+  ```shell
+  systemctl restart sidedoor
+  ```
+
+Now we can check sidedoor output to see if there are any errors by `systemctl status sidedoor`, but if not, we're ready to go and we should be able to login into WireGuard client box from WireGuard server network by running:
+
+```shell
+ssh <USER>@<WIREGUARD_CLIENT_PUBLIC_DNS> -W localhost:<BIND_PORT_ON_WIREGUARD_SERVER> <USER>@<WIREGUARD_SERVER_LAN_IP>
+```
+
+## Dynamic DNS
+
+A dynamic DNS server is useful when we can't have static IP addresses on the public network. This solution assumes that we don't have them and we actually don't need them because it is enough to have a dynamic DNS name setup to be good to go. I'm personally using [YDNS](https://ydns.io) but there are hundreds of services available out there.
+
+We have to run this in both boxes with different names (of course).
+
+* Installing curl
+
+  ```shell
+  apt install -y curl
+  ```
+
+* Get the YDNS updater
+
+  ```shell
+  curl -o /usr/local/bin/updater.sh https://raw.githubusercontent.com/ydns/bash-updater/master/updater.sh
+  ```
+
+* Give it execution permissions
+
+  ```shell
+  chmod +x /usr/local/bin/updater.sh
+  ```
+
+* Edit the file and set your information
+
+  ```shell
+  # nano /usr/local/bin/updater.sh
+  [...]
+  YDNS_USER="<EMAIL>"
+  YDNS_PASSWD="<SECRET>"
+  YDNS_HOST="<HOST>" # This have to be different on both boxes
+  [...]
+  ```
+
+* Create a cron entry by creating a cron file
+
+  ```shell
+  nano /etc/cron.d/ydns-updater
+  ```
+
+  With the content:
+
+  ```shell
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+  # Update YDNS every 15 minutes
+  */15 root * * * * /usr/local/bin/updater.sh -V
+  ```
+
+* Finally enable cron
+
+  ```shell
+  systemctl enable cron
+  ```
+
 ## Extra good practices setup
 
 ### Unattended security updates
@@ -469,13 +657,12 @@ As logrotate is setup to run daily via cron we don't have to do any further chan
 
 ### SSH hardening
 
-### Reverse SSH to WireGuard Server
+PermitRootLogin no
 
-* Install SideDoor
-
-  ```shell
-  apt install sidedoor
-  ```
+Lock down the local SSH server by editing /etc/ssh/sshd_config.
+Disable password authentication (ChallengeResponseAuthentication no and PasswordAuthentication no).
+Limit daemon to only listen on localhost (ListenAddress ::1 and ListenAddress 127.0.0.1).
+To apply changes, restart or reload sshd, e.g., sudo service ssh reload.
 
 ### Firewall
 
@@ -518,65 +705,13 @@ table ip nat {
 }z
 ```
 
-### Dynamic DNS
 
-Even if the server ip changes we should keep track of it via Dynamic DNS. IÂ´m personally using [YDNS](https://ydns.io) but feel free to use any other.
-
-* Installing curl
-
-  ```shell
-  apt install -y curl
-  ```
-
-* Get the YDNS updater
-
-  ```shell
-  curl -o /usr/local/bin/updater.sh https://raw.githubusercontent.com/ydns/bash-updater/master/updater.sh
-  ```
-
-* Give it execution permissions
-
-  ```shell
-  chmod +x /usr/local/bin/updater.sh
-  ```
-
-* Edit the file and set your information
-
-  ```shell
-  # nano /usr/local/bin/updater.sh
-  [...]
-  YDNS_USER="<EMAIL>"
-  YDNS_PASSWD="<SECRET>"
-  YDNS_HOST="<HOST>"
-  [...]
-  ```
-
-* Create a cron entry by creating a cron file
-
-  ```shell
-  nano /etc/cron.d/ydns-updater
-  ```
-
-  With the content:
-
-  ```shell
-  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-  # Update YDNS every 15 minutes
-  */15 * * * * /usr/local/bin/updater.sh > /dev/null
-  ```
 
 ### Remove unused packages
 
 ```shell
 apt remove -y apt remove wpasupplicant wireless-tools wireless-regdb hostapd iw crda
 ```
-
-### Reverse SSH
-
-In case the Wireguard box sits behind a NAT firewall and you can't control port forwarding rules you can setup a reverse SSH tunnel.
-
-I personally use sidedoor, which is an easy way to setup and maintain SSH tunnels, just follow the official documentation [here](https://github.com/daradib/sidedoor)
 
 # References
 
