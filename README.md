@@ -133,32 +133,32 @@ Run the steps below on both NanoPi:
   # Enable NAT:
   PostUp = iptables -t nat -A POSTROUTING -o %i -j MASQUERADE
 
-  # Allowing any traffic from lan0 (internal) to go over %i (tunnel):
-  PostUp = iptables -A FORWARD -i lan0 -o %i -j ACCEPT
+  # Allowing any traffic from <LAN_NETWORK_INTERFACE> (internal) to go over %i (tunnel):
+  PostUp = iptables -A FORWARD -i <LAN_NETWORK_INTERFACE> -o %i -j ACCEPT
 
-  # Allowing traffic from %i (tunnel) to go back over lan0 (internal). Since we specify the state RELATED, ESTABLISHED it
+  # Allowing traffic from %i (tunnel) to go back over <LAN_NETWORK_INTERFACE> (internal). Since we specify the state RELATED, ESTABLISHED it
   # will be limited to connection initiated from the internal network. Blocking external traffic trying to initiate a new
   # connection:
-  PostUp = iptables -A FORWARD -i %i -o lan0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+  PostUp = iptables -A FORWARD -i %i -o <LAN_NETWORK_INTERFACE> -m state --state RELATED,ESTABLISHED -j ACCEPT
 
-  # Allowing the NanoPi’s own loopback traffic:
+  # Allowing the NanoPiâ€™s own loopback traffic:
   PostUp = iptables -A INPUT -i lo -j ACCEPT
 
   # Allowing computers on the local network to ping the NanoPi:
-  PostUp = iptables -A INPUT -i lan0 -p icmp -j ACCEPT
+  PostUp = iptables -A INPUT -i <LAN_NETWORK_INTERFACE> -p icmp -j ACCEPT
 
   # Allowing SSH from the internal network:
-  PostUp = iptables -A INPUT -i lan0 -p tcp --dport 22 -j ACCEPT
+  PostUp = iptables -A INPUT -i <LAN_NETWORK_INTERFACE> -p tcp --dport 22 -j ACCEPT
 
   # Allowing all traffic initiated by the NanoPi to return. This is the same state principal as earlier:
   PostUp = iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-  # If traffic doesn’t match any of the the rules specified it will be dropped:
+  # If traffic doesnâ€™t match any of the the rules specified it will be dropped:
   PostUp = iptables -P FORWARD DROP
   PostUp = iptables -P INPUT DROP
   PostUp = iptables -L
 
-  PreDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o lan0 -j MASQUERADE
+  PreDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
   PostDown = sysctl -w net.ipv4.ip_forward=0
 
   [Peer]
@@ -168,7 +168,7 @@ Run the steps below on both NanoPi:
   PublicKey = <CLIENT_PUBLIC_KEY>
 
   # The IP address that this client is allowed to use.
-  AllowedIPs = 10.222.0.2/32,0.0.0.0/0,::/0
+  AllowedIPs = 0.0.0.0/0
 
   # Ensures that your home router does not kill the tunnel, by sending a ping
   # every 25 seconds.
@@ -319,99 +319,14 @@ Run the steps below on both NanoPi:
 
   ```shell
   # systemctl enable wg-quick@wg0
-  Created symlink /etc/systemd/system/multi-user.target.wants/wg-quick@wg0.service â†’ /lib/systemd/system/wg-quick@.service.
+  Created symlink /etc/systemd/system/multi-user.target.wants/wg-quick@wg0.service /lib/systemd/system/wg-quick@.service.
   ```
 
 At this point, you should be able to do ping the server from the client and through your new VPN.
 
 Nonetheless, still work to do, as WireGuard just creates a network interface that connects to the end point but in order to have a full VPN solution we need to set NanoPI to act as a gateway for all our network connections.
 
-## Setup LAN interface
-
-* Set static IP for the LAN interface
-
-  ```shell
-  xxx
-  ```
-
-## DHCP Server
-
-* Install the server
-
-  ```shell
-  apt install -y isc-dhcp-server
-  ```
-
-* Edit the config file to set what interfaces will listen for DHCP requests
-
-  ```shell
-  nano /etc/default/isc-dhcp-server
-  ```
-
-  Add the interface that you prefer, for NanoPI the LAN interface is usually `lan0`
-
-  ```shell
-  INTERFACESv4="lan0"
-  INTERFACESv6="lan0" # Only if you need IPv6, otherwise comment the line
-  ```
-
-* Now edit the server config file to set its behaviour
-
-  ```shell
-  nano /etc/dhcp/dhcpd.conf
-  ```
-
-  ```shell
-  # dhcpd.conf
-  #
-
-  default-lease-time 3600;
-  max-lease-time 7200;
-
-  # If this DHCP server is the official DHCP server for the local
-  # network, the authoritative directive should be uncommented.
-  authoritative;
-
-  # Disable the dynamic DNS:
-  ddns-update-style none;
-
-  # Set Deny decline messages to avoid DoS attack againest your dhcp server.
-  # The client device can send DHCPDECLINE message many times that can exhaust
-  # the DHCP serverâ€™s pool of IP addresses, causing the DHCP server to forget old address allocations:
-  deny declines;
-
-  # Disable support older BOOTP clients:
-  deny bootp;
-
-  # Use Google public DNS server (or use faster values that your internet provider gave you!):
-  option domain-name-servers 8.8.8.8, 8.8.4.4;
-
-  # DHCP Leasing
-  subnet 192.168.100.0 netmask 255.255.255.0 {
-    range 192.168.100.100 192.168.100.200;
-    option subnet-mask 255.255.255.0;
-    option broadcast-address 192.168.100.255;
-    option routers 192.168.100.1;
-  }
-  ```
-
-* Enable DHCP service
-
-  ```shell
-  systemctl enable isc-dhcp-server
-  ```
-
-* Start DHCP service
-
-  ```shell
-  systemctl start isc-dhcp-server
-  ```
-
-* Enable DHCP Server to start at every server run
-
-  ```shell
-  systemctl enable isc-dhcp-server.service
-  ```
+!! TIP: In case we do changes in the WireGuard config and we want to apply them without interrupting the actual connection, run: `wg syncconf wg0 <(wg-quick strip wg0)`
 
 ## Dynamic DNS
 
@@ -528,7 +443,7 @@ Sidedoor setup is very straight forward:
 
 * Enable forwarded ports on SSH deamon **(on the server box)**
 
-  SSH doesn’t by default allow remote hosts to forwarded ports. We're going to enable this only to the desired user by editing `/etc/ssh/sshd_config`:
+  SSH doesnâ€™t by default allow remote hosts to forwarded ports. We're going to enable this only to the desired user by editing `/etc/ssh/sshd_config`:
 
   ```shell
   nano /etc/ssh/sshd_config
