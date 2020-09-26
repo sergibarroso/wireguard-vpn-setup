@@ -10,7 +10,7 @@ This solution connects both sites, secures the connection between both edge's LA
 
 Is also good to keep in mind that for this solution, the client site acts as the source of internet connectivity and not the server site as should be expected. The reason for that is we have control over the gateway on the site Y but not on the site X.
 
-The solution is called `friendly vpn` because is perfect to send the client NanoPi to any friend in the world, and have access to their home LAN from your place, no setup from their side is required and you can also control the remote NanoPi from home.
+The solution is called `friendly vpn` because is perfect to send the client NanoPi to any friend in the world, and have access to his/her internet connection, no setup from their side is required and you can also control the remote NanoPi from home.
 
 Quite cool, isn't it? :)
 
@@ -127,38 +127,13 @@ Run the steps below on both NanoPi:
   # Set DNS resolver to our VPN client, preventing DNS leaks.
   DNS = 10.222.0.2
 
-  # Route all traffic coming from the client network to the WireGuard interface
+  # Enable ip forwarding in all interfaces
   PreUp = sysctl -w net.ipv4.ip_forward=1
 
-  # Enable NAT:
-  PostUp = iptables -t nat -A POSTROUTING -o %i -j MASQUERADE
-
   # Allowing any traffic from <LAN_NETWORK_INTERFACE> (internal) to go over %i (tunnel):
-  PostUp = iptables -A FORWARD -i <LAN_NETWORK_INTERFACE> -o %i -j ACCEPT
+  PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
 
-  # Allowing traffic from %i (tunnel) to go back over <LAN_NETWORK_INTERFACE> (internal). Since we specify the state RELATED, ESTABLISHED it
-  # will be limited to connection initiated from the internal network. Blocking external traffic trying to initiate a new
-  # connection:
-  PostUp = iptables -A FORWARD -i %i -o <LAN_NETWORK_INTERFACE> -m state --state RELATED,ESTABLISHED -j ACCEPT
-
-  # Allowing the NanoPi’s own loopback traffic:
-  PostUp = iptables -A INPUT -i lo -j ACCEPT
-
-  # Allowing computers on the local network to ping the NanoPi:
-  PostUp = iptables -A INPUT -i <LAN_NETWORK_INTERFACE> -p icmp -j ACCEPT
-
-  # Allowing SSH from the internal network:
-  PostUp = iptables -A INPUT -i <LAN_NETWORK_INTERFACE> -p tcp --dport 22 -j ACCEPT
-
-  # Allowing all traffic initiated by the NanoPi to return. This is the same state principal as earlier:
-  PostUp = iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-  # If traffic doesn’t match any of the the rules specified it will be dropped:
-  PostUp = iptables -P FORWARD DROP
-  PostUp = iptables -P INPUT DROP
-  PostUp = iptables -L
-
-  PreDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
+  PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
   PostDown = sysctl -w net.ipv4.ip_forward=0
 
   [Peer]
@@ -177,7 +152,7 @@ Run the steps below on both NanoPi:
 
   Pay attention to the `<CLIENT_PUBLIC_KEY>` because we still don't have this. **Caution: don't use the one from the server**.
 
-  Replace `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port.
+  Replace `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
 
 ## WireGuard Client Setup
 
@@ -229,11 +204,10 @@ Run the steps below on both NanoPi:
   # Enable traffic to be passed from the server network to the private subnet of the client
   PreUp = sysctl -w net.ipv4.ip_forward=1
 
-  PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+  PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
 
-  PreDown = sysctl -w net.ipv4.ip_forward=0
-
-  PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+  PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
+  PostDown = sysctl -w net.ipv4.ip_forward=0
 
   [Peer]
   # Configuration for the server to connect to
@@ -251,11 +225,13 @@ Run the steps below on both NanoPi:
   # every 25 seconds.
   PersistentKeepalive = 25
   ```
-  Replace `<SERVER_PUBLIC_KEY>` with the public key generated in the server machine.
 
-  Also `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. Usually is `eth0` for WAN port and `lan0` for LAN port on the NanoPi R2S.
+  Replace the following values:
 
-  And finally `<CLIENT_LAN_NETWORK>` for the network address you will use for your client's network range. E.g. `192.168.0.0/24`
+  `<SERVER_PUBLIC_KEY>` with the public key generated in the server machine.
+  `<SERVER_PUBLIC_ENDPOINT>` with the public DNS name of the WireGuard server.
+  `<SERVER_PUBLIC_PORT>` with the port exposed on the server network.
+  `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
 
 * Now that we've setup both server and client we can start WireGuard on both machines:
 
@@ -324,9 +300,7 @@ Run the steps below on both NanoPi:
 
 At this point, you should be able to do ping the server from the client and through your new VPN.
 
-Nonetheless, still work to do, as WireGuard just creates a network interface that connects to the end point but in order to have a full VPN solution we need to set NanoPI to act as a gateway for all our network connections.
-
-!! TIP: In case we do changes in the WireGuard config and we want to apply them without interrupting the actual connection, run: `wg syncconf wg0 <(wg-quick strip wg0)`
+`TIP`: In case we do changes in the WireGuard config and we want to apply them without interrupting the actual connection, run: `wg syncconf wg0 <(wg-quick strip wg0)`
 
 ## Dynamic DNS
 
@@ -363,28 +337,67 @@ We have to run this in both boxes with different names (of course).
   [...]
   ```
 
-* Create a cron entry by creating a cron file
+* Add the script as a PreUp condition for WireGuard config
 
   ```shell
-  nano /etc/cron.d/ydns-updater
+  nano /etc/wireguard/wg0.conf
   ```
+
+  Add the following content inside the `[Interface]` section
 
   With the content:
 
-  ```shell
-  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-  # Update YDNS every 15 minutes
-  */15 root * * * * /usr/local/bin/updater.sh -V
-  ```
-
-* Finally enable cron
-
-  ```shell
-  systemctl enable cron
+  ```text
+  PreUp = /usr/local/bin/updater.sh -V
   ```
 
 # Extra good practices and optional features
+
+## Watchdog
+
+### What is a watchdog
+
+A watchdog is an electronic timer used for monitoring hardware and software functionality. Software uses a watchdog timer to detect and recover fatal failures.
+
+### Why using a watchdog
+
+We use a watchdog to make sure we have a functional VPN. If a problem comes up, the computer should be able to recover itself back to a functional state. We will configure the board to reboot if WireGuard link is down for too long, or a specific process isn’t running any more.
+
+### Setup the watchdog software
+
+* Install the watchdog software
+
+  ```shell
+  apt install watchdog
+  ```
+
+* Configure the watchdog to monitor WireGuard network
+
+  ```shell
+  nano /etc/watchdog.conf
+  ```
+
+  Edit the following lines:
+
+  ```text
+  log-dir = /var/log.hdd/watchdog
+
+  interface = wg0
+
+  ping = <REMOTE_WG_IP>
+
+  retry-timeout = 300
+
+  interval = 30
+  ```
+
+* Enable and start the service
+
+  ```shell
+  systemctl stop watchdog
+  systemctl enable watchdog
+  systemctl start watchdog
+  ```
 
 ## Reverse SSH to WireGuard Client
 
@@ -545,16 +558,18 @@ rm /etc/logrotate.d/*
 And now let's create the new config file at `/etc/logrotate.d/nanopi` with the following content:
 
 ```config
-/var/log/*.log /var/log/*/*.log {
-  daily
-  rotate 0
-  create
-}
-
 /var/log.hdd/*.log /var/log.hdd/*/*.log {
   daily
   rotate 0
   create
+  missingok
+}
+
+/var/log/*.log /var/log/*/*.log {
+  daily
+  rotate 0
+  create
+  missingok
 }
 ```
 
@@ -634,14 +649,6 @@ table ip nat {
 		oifname "wan0" masquerade
 	}
 }z
-```
-
-
-
-### Remove unused packages
-
-```shell
-apt remove -y apt remove wpasupplicant wireless-tools wireless-regdb hostapd iw crda
 ```
 
 # References
