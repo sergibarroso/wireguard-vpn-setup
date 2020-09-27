@@ -516,9 +516,15 @@ The second one is located in the root partition (`/var/log.hdd/`).
 
 The good practice here would be to save all logs in the disk, or at least safekeeping a compressed copy in the disk for security.
 
-But if you're using this at home and you don't care much about them apart from realtime debugging when errors happen, then you can basically discards all logs after some hours using `logrotate` :)
+But if you're using this at home and you don't care much about them apart from realtime debugging when errors happen, then you can basically discards all logs after a day using `logrotate` :)
 
-Logrotate has a main config file located at `/etc/logrotate.conf` and then all sort of per directory logrotate definitions inside `/etc/logrotate.d`, let's first edit the default behaviour by:
+Let's staret by increasing the `/var/log` ram disk from 50MB to 100MB.
+
+Edit `/etc/default/armbian-ramlog` and set `SIZE` to 100M.
+
+apply the changes by running `systemctl restart armbian-ramlog.service`
+
+Now, let's move to Logrotate. The main config file is located at `/etc/logrotate.conf` and then all sort of directory specific logrotate definitions inside `/etc/logrotate.d`, let's first edit the default behaviour by:
 
 ```shell
 nano /etc/logrotate.conf
