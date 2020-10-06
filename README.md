@@ -1,4 +1,4 @@
-# Friendly WireGuard VPN
+# How-to site-2-site WireGuard VPN
 
 ## Intro
 
@@ -10,7 +10,7 @@ This solution connects both sites, secures the connection between both edge's LA
 
 Is also good to keep in mind that for this solution, the client site acts as the source of internet connectivity and not the server site as should be expected. The reason for that is we have control over the gateway on the site Y but not on the site X.
 
-The solution is called `friendly vpn` because is perfect to send the client NanoPi to any friend in the world, and have access to his/her internet connection, no setup from their side is required and you can also control the remote NanoPi from home.
+The solution is perfect to send the NanoPi client box to any friend in the world, and have access to his/her internet connection, no setup from their side is required and you can also control the remote NanoPi from home.
 
 Quite cool, isn't it? :)
 
@@ -616,6 +616,7 @@ To apply the previous config just restart the SSH daemon:
 systemctl restart ssh
 ```
 
+<!--
 ## Firewall
 
 Edit the content of `/etc/iptables.conf` and add:
@@ -655,7 +656,7 @@ table ip nat {
 		oifname "wan0" masquerade
 	}
 }z
-```
+``` -->
 
 # References
 
