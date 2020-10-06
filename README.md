@@ -662,3 +662,5 @@ table ip nat {
 In orther to build this how to I've used several references, from blogs, to other how-to to man pages.
 
 * [https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html](https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html)
+* [https://www.wireguard.com/quickstart/](https://www.wireguard.com/quickstart/)
+* [https://danrl.com/blog/2016/travel-wifi/](https://danrl.com/blog/2016/travel-wifi/)
