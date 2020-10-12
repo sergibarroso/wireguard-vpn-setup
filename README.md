@@ -1,8 +1,8 @@
-# How-to site-2-site WireGuard VPN
+# Site-2-site WireGuard VPN set up guide
 
 ## Intro
 
-This repo is a how-to set a WireGuard site-2-site VPN with Nanopi machines.
+This is a step by step guide on how to set up a WireGuard site-2-site VPN.
 
 This solution connects both sites, secures the connection between both edge's LAN clients, and additionally, it routes all traffic going to the internet through site Y gateway as we can see in the following diagram.
 
@@ -10,7 +10,7 @@ This solution connects both sites, secures the connection between both edge's LA
 
 Is also good to keep in mind that for this solution, the client site acts as the source of internet connectivity and not the server site as should be expected. The reason for that is we have control over the gateway on the site Y but not on the site X.
 
-The solution is perfect to send the NanoPi client box to any friend in the world, and have access to his/her internet connection, no setup from their side is required and you can also control the remote NanoPi from home.
+The solution is perfect for sending the NanoPi client box to any friend in the world, and have access to his/her internet connection, no set up from their side is required, and you can also control the remote NanoPi from home.
 
 Quite cool, isn't it? :)
 
@@ -39,7 +39,7 @@ I will document the process with Etcher to write Armbian image into SD cards.
 * SSH into the box by `ssh root@<IP>` and the default password is `1234`
 * Immediately after login the first time it will ask the user to change `root` password and create a new regular user account
 
-## Common setup
+## Common set up
 
 Run the steps below on both NanoPi:
 
@@ -152,7 +152,7 @@ Run the steps below on both NanoPi:
 
   Pay attention to the `<CLIENT_PUBLIC_KEY>` because we still don't have this. **Caution: don't use the one from the server**.
 
-  Replace `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
+  Replace `<LAN_NETWORK_INTERFACE>` for the name of the interface where the server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
 
 ## WireGuard Client Setup
 
@@ -231,9 +231,9 @@ Run the steps below on both NanoPi:
   `<SERVER_PUBLIC_KEY>` with the public key generated in the server machine.
   `<SERVER_PUBLIC_ENDPOINT>` with the public DNS name of the WireGuard server.
   `<SERVER_PUBLIC_PORT>` with the port exposed on the server network.
-  `<LAN_NETWORK_INTERFACE>` for the name of interface where server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
+  `<LAN_NETWORK_INTERFACE>` for the name of the interface where the server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
 
-* Now that we've setup both server and client we can start WireGuard on both machines:
+* Now that we've set up both server and client we can start WireGuard on both machines:
 
   ```shell
   wg-quick up wg0
@@ -248,7 +248,7 @@ Run the steps below on both NanoPi:
   [#] ip link set mtu 1420 up dev wg0
   ```
 
-  In case you see an error like the following, please reboot your nanopi by running `reboot`:
+  In case you see an error like the following, please reboot your NanoPi by running `reboot`:
 
   ```shell
   [#] ip link add wg0 type wireguard
@@ -277,7 +277,7 @@ Run the steps below on both NanoPi:
 
   If you don't have any `peer` definition means that the tunnel didn't work.
 
-  At this point you should be able to bring up both Wireguard interfaces and ping across both ends by:
+  At this point, you should be able to bring up both Wireguard interfaces and ping across both ends by:
 
   Running this in both ends:
   ```shell
@@ -289,22 +289,22 @@ Run the steps below on both NanoPi:
   ping <REMOTE_WG_IP>
   ```
 
-* Enable systemd interface
+* Enable SystemD interface
 
-  To make sure that systemd creates the interface everytime the system starts we have to enable it by:
+  To make sure that systemd creates the interface every time the system starts, we have to enable it by:
 
   ```shell
   # systemctl enable wg-quick@wg0
   Created symlink /etc/systemd/system/multi-user.target.wants/wg-quick@wg0.service /lib/systemd/system/wg-quick@.service.
   ```
 
-At this point, you should be able to do ping the server from the client and through your new VPN.
+At this point, you should be able to ping the server from the client and through your new VPN.
 
 `TIP`: In case we do changes in the WireGuard config and we want to apply them without interrupting the actual connection, run: `wg syncconf wg0 <(wg-quick strip wg0)`
 
 ## Dynamic DNS
 
-A dynamic DNS server is useful when we can't have static IP addresses on the public network. This solution assumes that we don't have them and we actually don't need them because it is enough to have a dynamic DNS name setup to be good to go. I'm personally using [YDNS](https://ydns.io) but there are hundreds of services available out there.
+A dynamic DNS server is useful when we can't have static IP addresses on the public network. This solution assumes that we don't have them and we actually don't need them because it is enough to have a dynamic DNS name set up to be good to go. I'm personally using [YDNS](https://ydns.io), but there are hundreds of services available out there.
 
 We have to run this in both boxes with different names (of course).
 
@@ -357,7 +357,7 @@ We have to run this in both boxes with different names (of course).
 
 ### What is a watchdog
 
-A watchdog is an electronic timer used for monitoring hardware and software functionality. Software uses a watchdog timer to detect and recover fatal failures.
+A watchdog is an electronic timer used for monitoring hardware and software functionality. The software uses a watchdog timer to detect and recover fatal failures.
 
 ### Why using a watchdog
 
@@ -401,11 +401,11 @@ We use a watchdog to make sure we have a functional VPN. If a problem comes up, 
 
 ## Reverse SSH to WireGuard Client
 
-As we want to be able to control the WireGuard client box from our local network without relaying on the VPN network, this solution setups up a reverse SSH tunnel.
+As we want to be able to control the WireGuard client box from our local network without relying on the VPN network, this solution setups up a reverse SSH tunnel.
 
-To achieve that we're going to use sidedoor. Additionally, find the official repo and documentation [here](https://github.com/daradib/sidedoor)
+To achieve that we're going to use Sidedoor. Additionally, find the official repo and documentation [here](https://github.com/daradib/sidedoor)
 
-Sidedoor setup is very straight forward:
+Sidedoor set up is very straight forward:
 
 * Installation **(on the client box)**
 
@@ -433,7 +433,7 @@ Sidedoor setup is very straight forward:
 
   `<WIREGUARD_CLIENT_PUBLIC_DNS>`: The public DNS/IP for the WireGuard client box.
 
-  `<BIND_PORT_ON_WIREGUARD_SERVER>`: The port where WireGuard client SSHD will be binded on WireGuard server. Choose something higher than 1024.
+  `<BIND_PORT_ON_WIREGUARD_SERVER>`: The port where WireGuard client SSHD will be bound on WireGuard server. Choose something higher than 1024.
 
   `<WIREGUARD_CLIENT_SSHD_PORT>`: The port where SSHD is listening on the WireGuard client, usually 22.
 
@@ -445,16 +445,16 @@ Sidedoor setup is very straight forward:
   REMOTE_SERVER=<USER>@<WIREGUARD_SERVER_PUBLIC_DNS>
   ```
 
-  `<USER>`: user to login on WireGuard server box.
+  `<USER>`: user to log in on WireGuard server box.
 
   `<WIREGUARD_SERVER_PUBLIC_DNS>`: The public DNS/IP for the WireGuard server box.
 
 * Add WireGuard public key to WireGuard server **(on the server box)**
 
-  In order to make the tunnel working without any user interaction we've to enable public key authentication to WireGuard Server's SSH daemon.
+  To make the tunnel working without any user interaction, we've to enable public-key authentication to WireGuard Server's SSH daemon.
   To do that, copy the content of the file `/etc/sidedoor/id_rsa.pub` on the WireGuard client box and paste it inside the desired user's `~/.ssh/authorized_keys` file inside WireGuard server box.
 
-* Enable forwarded ports on SSH deamon **(on the server box)**
+* Enable forwarded ports on SSH daemon **(on the server box)**
 
   SSH doesn’t by default allow remote hosts to forwarded ports. We're going to enable this only to the desired user by editing `/etc/ssh/sshd_config`:
 
@@ -469,7 +469,7 @@ Sidedoor setup is very straight forward:
     GatewayPorts yes
   ```
 
-  `<USER>`: user specified on the sidedoor config file.
+  `<USER>`: user specified on the Sidedoor config file.
 
 * Restart SSHD service **(on the server box)**
 
@@ -477,13 +477,13 @@ Sidedoor setup is very straight forward:
   systemctl restart ssh
   ```
 
-* Restart the sidedoor service to apply changes **(on the client box)**
+* Restart the Sidedoor service to apply changes **(on the client box)**
 
   ```shell
   systemctl restart sidedoor
   ```
 
-Now we can check sidedoor output to see if there are any errors by `systemctl status sidedoor`, but if not, we're ready to go and we should be able to login into WireGuard client box from WireGuard server network by running:
+Now we can check Sidedoor output to see if there are any errors by `systemctl status sidedoor`, but if not, we're ready to go and we should be able to login into WireGuard client box from WireGuard server network by running:
 
 ```shell
 ssh <USER>@<WIREGUARD_CLIENT_PUBLIC_DNS> -W localhost:<BIND_PORT_ON_WIREGUARD_SERVER> <USER>@<WIREGUARD_SERVER_LAN_IP>
@@ -491,22 +491,22 @@ ssh <USER>@<WIREGUARD_CLIENT_PUBLIC_DNS> -W localhost:<BIND_PORT_ON_WIREGUARD_SE
 
 ## Unattended security updates
 
-Security updates are crucial to keep our system safe from threads. Eventhow we don't have so many services open to the world, one bug is enough to allow attackers to break into our system.
+Security updates are crucial to keep our system safe from threats. Even tho we don't have so many services open to the world, one bug is enough to allow attackers to break into our system.
 
 ```shell
 apt install -y unattended-upgrades
 ```
 
-The default setup of this package installs security updates for the current release. If you want to update all packages when available take a look at the `/etc/apt/apt.conf.d/50unattended-upgrades`.
+The default set up of this package installs security updates for the current release. If you want to update all packages when available, take a look at the `/etc/apt/apt.conf.d/50unattended-upgrades`.
 
-To test the package behaviour we can run:
+To test the package behaviour, we can run:
 ```shell
 unattended-upgrade --debug --dry-run
 ```
 
 ## Log rotate
 
-Armbian in Nanopi has the logs located in two directories. The first is a ram disk (`/var/log/`) which is usually around 50MB size. This is definitely not enough to keep our logs for more than a week, and depending on how much connection we have a day will not even hold 24h of logs before you start getting errors such as:
+Armbian in NanoPi has the logs located in two directories. The first is a ramdisk (`/var/log/`) which is usually around 50MB size. This is definitely not enough to keep our logs for more than a week, and depending on how much connection we have a day will not even hold 24h of logs before you start getting errors such as:
 
 ```shell
 cannot write to log file '/var/log/xxx.log': No space left on device
@@ -516,15 +516,15 @@ The second one is located in the root partition (`/var/log.hdd/`).
 
 The good practice here would be to save all logs in the disk, or at least safekeeping a compressed copy in the disk for security.
 
-But if you're using this at home and you don't care much about them apart from realtime debugging when errors happen, then you can basically discards all logs after a day using `logrotate` :)
+But if you're using this at home and you don't care much about them apart from realtime debugging when errors happen, then you can basically discard all logs after a day using `logrotate` :)
 
-Let's staret by increasing the `/var/log` ram disk from 50MB to 100MB.
+Let's start by increasing the `/var/log` ramdisk from 50MB to 100MB.
 
 Edit `/etc/default/armbian-ramlog` and set `SIZE` to 100M.
 
 apply the changes by running `systemctl restart armbian-ramlog.service`
 
-Now, let's move to Logrotate. The main config file is located at `/etc/logrotate.conf` and then all sort of directory specific logrotate definitions inside `/etc/logrotate.d`, let's first edit the default behaviour by:
+Now, let's move to Logrotate. The main config file is located at `/etc/logrotate.conf` and then all sort of directory specific Logrotate definitions inside `/etc/logrotate.d`, let's first edit the default behaviour by:
 
 ```shell
 nano /etc/logrotate.conf
@@ -535,7 +535,7 @@ Replace the content of the file for this:
 # rotate log files daily
 daily
 
-# Old version are removed
+# Old versions are removed
 rotate 0
 
 # create new (empty) log files after rotating old ones
@@ -587,13 +587,13 @@ This can be tested by:
 logrotate -d /etc/logrotate.d/nanopi
 ```
 
-the `-d` flag will list each log file it is considering to rotate.
+The `-d` flag will list each log file it is considering to rotate.
 
-As logrotate is setup to run daily via cron we don't have to do any further change.
+As Logrotate is set up to run daily via Cron we don't have to do any further change.
 
 ## SSH hardening
 
-These are just some good practices to hardening our SSH deamons, specially when they are publically available.
+These are just some good practices to hardening our SSH daemons, especially when they are publically available.
 
 Add those lines somewhere inside the `/etc/ssh/sshd_config` file:
 
@@ -610,7 +610,7 @@ ListenAddress ::1
 ListenAddress 127.0.0.1
 ```
 
-To apply the previous config just restart the SSH daemon:
+To apply the previous config, just restart the SSH daemon:
 
 ```shell
 systemctl restart ssh
@@ -660,7 +660,7 @@ table ip nat {
 
 # References
 
-In orther to build this how to I've used several references, from blogs, to other how-to to man pages.
+To build this guide, I've used several references, from blogs, other how-to and man pages.
 
 * [https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html](https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html)
 * [https://www.wireguard.com/quickstart/](https://www.wireguard.com/quickstart/)
