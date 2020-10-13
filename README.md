@@ -46,7 +46,7 @@ Run the steps below on both NanoPi:
 * Set the hostname (replace `<NEW_HOSTNAME>` with the name you desire)
 
   ```shell
-  sed -i 's/nanopi-r2s/<NEW_HOSTNAME>/g' /etc/hostname /etc/hosts
+  sed -i "s/$HOSTNAME/<NEW_HOSTNAME>/g" /etc/hostname /etc/hosts
   ```
 
 * Set the timezone
