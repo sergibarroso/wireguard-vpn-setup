@@ -616,6 +616,15 @@ To apply the previous config, just restart the SSH daemon:
 systemctl restart ssh
 ```
 
+## Clean the system
+
+* Disable unused SystemD services
+
+  ```shell
+  systemctl stop wpa_supplicant systemd-rfkill.service systemd-rfkill.socket
+  systemctl disable wpa_supplicant systemd-rfkill.service systemd-rfkill.socket
+  ```
+
 <!--
 ## Firewall
 
