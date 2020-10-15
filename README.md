@@ -132,6 +132,7 @@ Run the steps below on both NanoPi:
 
   # Allowing any traffic from <LAN_NETWORK_INTERFACE> (internal) to go over %i (tunnel):
   PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
+  PostUp = iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
   PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
   PostDown = sysctl -w net.ipv4.ip_forward=0
@@ -203,7 +204,6 @@ Run the steps below on both NanoPi:
 
   # Enable traffic to be passed from the server network to the private subnet of the client
   PreUp = sysctl -w net.ipv4.ip_forward=1
-
   PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
 
   PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
