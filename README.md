@@ -2,74 +2,65 @@
 
 ## Intro
 
-This is a step by step guide on how to set up a WireGuard site-2-site VPN.
+This is a step-by-step guide on how to set up a WireGuard site-2-site VPN.
 
-This solution connects both sites, secures the connection between both edge's LAN clients, and additionally, it routes all traffic going to the internet through site Y gateway as we can see in the following diagram.
+This solution connects both sites, secures the connection between both edge's LAN clients, and routes all traffic going to the internet through site Y gateway as we can see in the following diagram.
 
 ![architecture](images/wireguard.png)
 
-Is also good to keep in mind that for this solution, the client site acts as the source of internet connectivity and not the server site as should be expected. The reason for that is we have control over the gateway on the site Y but not on the site X.
+Keep in mind that the client site acts as the source of internet connectivity and not the server site as should be expected. The reason is that we have control over the gateway on the site Y but not on the site X.
 
-The solution is perfect for sending the NanoPi client box to any friend in the world, and have access to his/her internet connection, no set up from their side is required, and you can also control the remote NanoPi from home.
+The solution is perfect for sending the NanoPi client box to any friend anywhere in the world, and have access to his/her internet connection, no set up from their side is required, and you can also control the remote NanoPi from home.
 
 Quite cool, isn't it? :)
 
 ## Requirements
 
-* 2x NanoPi (I'm using Nanopi R2S)
-* 2x MicroSD
-* [Armbian distro](https://www.armbian.com/nanopi-r2s/)
+- 2x NanoPi (I'm using Nanopi R2S)
+- 2x MicroSD
+- [Armbian distro](https://www.armbian.com/nanopi-r2s/)
 
 ## OS Installation
 
 ### Copy OS to SD Card
 
-I will document the process with Etcher to write Armbian image into SD cards.
+Follow the [official Armbian documentation](https://docs.armbian.com/User-Guide_Getting-Started/#deploy-the-image) to get the image into the SD card.
 
-* Download [Etcher](https://www.etcher.io/)
-* Insert the SD Card in the computer
-* Use Ether to write the Armbian image you should have already downloaded (if not check the requirements section for the link)
-* Once done, eject the card and insert it in the NanoPi R2S
+Once done, insert it in the NanoPi R2S
 
 ### Booting NanoPi R2S
 
-* Plug the ethernet cable
-* Plug the power cable
-* Armbian uses DHCP by default so once you know the IP address assigned from your DHCP server you can SSH into it
-* SSH into the box by `ssh root@<IP>` and the default password is `1234`
-* Immediately after login the first time it will ask the user to change `root` password and create a new regular user account
+- Plug the ethernet cable
+- Plug the power cable
+- Armbian uses DHCP by default so once you know the IP address assigned from your DHCP server you can SSH into it
+- SSH into the box by `ssh root@<IP>` and the default password is `1234`
+- Immediately after login the first time it will ask:
+  - Change `root` password and create a new regular user account
+  - Set up the timezone and language
 
 ## Common set up
 
 Run the steps below on both NanoPi:
 
-* Set the hostname (replace `<NEW_HOSTNAME>` with the name you desire)
+- Set the hostname (replace `<NEW_HOSTNAME>` with the name you desire)
 
   ```shell
   sed -i "s/$HOSTNAME/<NEW_HOSTNAME>/g" /etc/hostname /etc/hosts
   ```
 
-* Set the timezone
-
-  ```shell
-  dpkg-reconfigure tzdata
-  ```
-
-  Select the timezone where each NanoPi is going to be located.
-
-* Upgrade the system to the latest version of all packages by running:
+- Upgrade the system to the latest version of all packages by running:
 
   ```shell
   apt update && apt -y upgrade
   ```
 
-* Install [WireGuard](https://www.wireguard.com/install/)
+- Install [WireGuard](https://www.wireguard.com/install/)
 
   ```shell
   apt install -y wireguard
   ```
 
-* Install iptables
+- Install iptables
 
   ```shell
   apt install -y iptables
@@ -77,32 +68,32 @@ Run the steps below on both NanoPi:
 
 ## WireGuard Server setup
 
-* Create a directory to store the keys and set strict permissions
+- Create a directory to store the keys and set strict permissions
 
   ```shell
   mkdir /etc/wireguard/keys
   chmod 700 /etc/wireguard/keys
   ```
 
-* Generate the server's private key by running the following command
+- Generate the server's private key by running the following command
 
   ```shell
   wg genkey > /etc/wireguard/keys/private.key
   ```
 
-* Use the output from the previous command to generate the server's public key
+- Use the output from the previous command to generate the server's public key
 
   ```shell
   cat /etc/wireguard/keys/private.key | wg pubkey > /etc/wireguard/keys/public.key
   ```
 
-* Set strict permissions on key files
+- Set strict permissions on key files
 
   ```shell
   chmod 400 /etc/wireguard/keys/*.key
   ```
 
-* Create a WireGuard config file
+- Create a WireGuard config file
 
   ```shell
   nano /etc/wireguard/wg0.conf
@@ -157,20 +148,20 @@ Run the steps below on both NanoPi:
 
 ## WireGuard Client Setup
 
-* Create a directory to store the keys and set strict permissions
+- Create a directory to store the keys and set strict permissions
 
   ```shell
   mkdir /etc/wireguard/keys
   chmod 700 /etc/wireguard/keys
   ```
 
-* Generate client's private key
+- Generate client's private key
 
   ```shell
   wg genkey > /etc/wireguard/keys/private.key
   ```
 
-* Use the output from the previous command to generate the client's public key
+- Use the output from the previous command to generate the client's public key
 
   ```shell
   cat /etc/wireguard/keys/private.key | wg pubkey > /etc/wireguard/keys/public.key
@@ -178,13 +169,13 @@ Run the steps below on both NanoPi:
 
   At this point, you can take the content of the client's public key and add it to the server's WireGuard config on the [previous section](#wireguard-server-setup).
 
-* Set strict permissions on key files
+- Set strict permissions on key files
 
   ```shell
   chmod 400 /etc/wireguard/keys/*.key
   ```
 
-* Create a WireGuardconfig file
+- Create a WireGuard config file
 
   ```shell
   nano /etc/wireguard/wg0.conf
@@ -233,7 +224,7 @@ Run the steps below on both NanoPi:
   `<SERVER_PUBLIC_PORT>` with the port exposed on the server network.
   `<LAN_NETWORK_INTERFACE>` for the name of the interface where the server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
 
-* Now that we've set up both server and client we can start WireGuard on both machines:
+- Now that we've set up both server and client we can start WireGuard on both machines:
 
   ```shell
   wg-quick up wg0
@@ -258,7 +249,7 @@ Run the steps below on both NanoPi:
   Cannot find device "wg0"
   ```
 
-* Check WireGuardinterface
+- Check WireGuard interface
 
   ```shell
   # wg show
@@ -280,16 +271,18 @@ Run the steps below on both NanoPi:
   At this point, you should be able to bring up both Wireguard interfaces and ping across both ends by:
 
   Running this in both ends:
+
   ```shell
   wg-quick up wg0
   ```
 
   And then try to ping the other host
+
   ```shell
   ping <REMOTE_WG_IP>
   ```
 
-* Enable SystemD interface
+- Enable SystemD interface
 
   To make sure that systemd creates the interface every time the system starts, we have to enable it by:
 
@@ -308,25 +301,25 @@ A dynamic DNS server is useful when we can't have static IP addresses on the pub
 
 We have to run this in both boxes with different names (of course).
 
-* Installing curl
+- Installing curl
 
   ```shell
   apt install -y curl
   ```
 
-* Get the YDNS updater
+- Get the YDNS updater
 
   ```shell
   curl -o /usr/local/bin/updater.sh https://raw.githubusercontent.com/ydns/bash-updater/master/updater.sh
   ```
 
-* Give it execution permissions
+- Give it execution permissions
 
   ```shell
   chmod +x /usr/local/bin/updater.sh
   ```
 
-* Edit the file and set your information
+- Edit the file and set your information
 
   ```shell
   # nano /usr/local/bin/updater.sh
@@ -337,7 +330,7 @@ We have to run this in both boxes with different names (of course).
   [...]
   ```
 
-* Add the script as a PreUp condition for WireGuard config
+- Add the script as a PreUp condition for WireGuard config
 
   ```shell
   nano /etc/wireguard/wg0.conf
@@ -351,27 +344,71 @@ We have to run this in both boxes with different names (of course).
   PreUp = /usr/local/bin/updater.sh -V
   ```
 
-# Extra good practices and optional features
+## Network testing
 
-## Watchdog
+To test the network bandwidth between the two Wireguard nodes we will use [iperf3](https://iperf.fr). Meaning, we will need to install it on both, the Wireguard client and the server:
 
-### What is a watchdog
+```shell
+sudo apt install iperf3
+```
+
+Once we have the tool installed we can proceed by running the following command on the Wireguard client to listed to iperf requests:
+
+```shell
+iperf3 -s
+```
+
+And on the Wireguard server we run the iperf client
+
+```shell
+iperf3 -c 10.222.0.2
+```
+
+We should see on both sides something like:
+
+```shell
+Connecting to host 10.222.0.2, port 5201
+[  5] local 10.222.0.1 port 46702 connected to 10.222.0.2 port 5201
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.00   sec  16.8 MBytes   140 Mbits/sec    0   7.24 MBytes
+[  5]   1.00-2.00   sec  19.5 MBytes   164 Mbits/sec    0   7.30 MBytes
+[  5]   2.00-3.00   sec  21.1 MBytes   177 Mbits/sec    0   7.33 MBytes
+[  5]   3.00-4.00   sec  19.4 MBytes   163 Mbits/sec    0   7.33 MBytes
+[  5]   4.00-5.00   sec  20.9 MBytes   175 Mbits/sec    0   7.33 MBytes
+[  5]   5.00-6.00   sec  19.5 MBytes   164 Mbits/sec    0   7.33 MBytes
+[  5]   6.00-7.00   sec  20.8 MBytes   174 Mbits/sec    0   7.33 MBytes
+[  5]   7.00-8.00   sec  20.6 MBytes   173 Mbits/sec    0   7.33 MBytes
+[  5]   8.00-9.00   sec  19.5 MBytes   164 Mbits/sec    0   7.33 MBytes
+[  5]   9.00-10.00  sec  20.9 MBytes   175 Mbits/sec    0   7.33 MBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate           Retr
+[  5]   0.00-10.00  sec   199 MBytes   167 Mbits/sec    0     sender
+[  5]   0.00-10.17  sec   198 MBytes   163 Mbits/sec          receiver
+
+iperf Done.
+```
+
+## Good practices and optional features
+
+### Watchdog
+
+#### What is a watchdog
 
 A watchdog is an electronic timer used for monitoring hardware and software functionality. The software uses a watchdog timer to detect and recover fatal failures.
 
-### Why using a watchdog
+#### Why using a watchdog
 
-We use a watchdog to make sure we have a functional VPN. If a problem comes up, the computer should be able to recover itself back to a functional state. We will configure the board to reboot if WireGuard link is down for too long, or a specific process isn’t running any more.
+We use a watchdog to make sure we have a functional VPN. If a problem comes up, the computer should be able to recover itself back to a functional state. We will configure the board to reboot if WireGuard link is down for too long, or a specific process isn’t running anymore.
 
-### Setup the watchdog software
+#### Setup the watchdog software
 
-* Install the watchdog software
+- Install the watchdog software
 
   ```shell
   apt install watchdog
   ```
 
-* Configure the watchdog to monitor WireGuard network
+- Configure the watchdog to monitor WireGuard network
 
   ```shell
   nano /etc/watchdog.conf
@@ -391,7 +428,7 @@ We use a watchdog to make sure we have a functional VPN. If a problem comes up, 
   interval = 30
   ```
 
-* Enable and start the service
+- Enable and start the service
 
   ```shell
   systemctl stop watchdog
@@ -399,7 +436,7 @@ We use a watchdog to make sure we have a functional VPN. If a problem comes up, 
   systemctl start watchdog
   ```
 
-## Reverse SSH to WireGuard Client
+### Reverse SSH to WireGuard Client
 
 As we want to be able to control the WireGuard client box from our local network without relying on the VPN network, this solution setups up a reverse SSH tunnel.
 
@@ -407,19 +444,19 @@ To achieve that we're going to use Sidedoor. Additionally, find the official rep
 
 Sidedoor set up is very straight forward:
 
-* Installation **(on the client box)**
+- Installation **(on the client box)**
 
   ```shell
   apt install sidedoor
   ```
 
-* Generate SSH private key to access the remote server **(on the client box)**
+- Generate SSH private key to access the remote server **(on the client box)**
 
   ```shell
   ssh-keygen -t rsa -N '' -f /etc/sidedoor/id_rsa
   ```
 
-* Edit sidedoor configuration file **(on the client box)**
+- Edit Sidedoor configuration file **(on the client box)**
 
   ```shell
   nano /etc/default/sidedoor
@@ -449,12 +486,12 @@ Sidedoor set up is very straight forward:
 
   `<WIREGUARD_SERVER_PUBLIC_DNS>`: The public DNS/IP for the WireGuard server box.
 
-* Add WireGuard public key to WireGuard server **(on the server box)**
+- Add WireGuard public key to WireGuard server **(on the server box)**
 
   To make the tunnel working without any user interaction, we've to enable public-key authentication to WireGuard Server's SSH daemon.
   To do that, copy the content of the file `/etc/sidedoor/id_rsa.pub` on the WireGuard client box and paste it inside the desired user's `~/.ssh/authorized_keys` file inside WireGuard server box.
 
-* Enable forwarded ports on SSH daemon **(on the server box)**
+- Enable forwarded ports on SSH daemon **(on the server box)**
 
   SSH doesn’t by default allow remote hosts to forwarded ports. We're going to enable this only to the desired user by editing `/etc/ssh/sshd_config`:
 
@@ -466,18 +503,18 @@ Sidedoor set up is very straight forward:
 
   ```shell
   Match User <USER>
-    GatewayPorts yes
+  GatewayPorts yes
   ```
 
   `<USER>`: user specified on the Sidedoor config file.
 
-* Restart SSHD service **(on the server box)**
+- Restart SSHD service **(on the server box)**
 
   ```shell
   systemctl restart ssh
   ```
 
-* Restart the Sidedoor service to apply changes **(on the client box)**
+- Restart the Sidedoor service to apply changes **(on the client box)**
 
   ```shell
   systemctl restart sidedoor
@@ -489,7 +526,7 @@ Now we can check Sidedoor output to see if there are any errors by `systemctl st
 ssh <USER>@<WIREGUARD_CLIENT_PUBLIC_DNS> -W localhost:<BIND_PORT_ON_WIREGUARD_SERVER> <USER>@<WIREGUARD_SERVER_LAN_IP>
 ```
 
-## Unattended security updates
+### Unattended security updates
 
 Security updates are crucial to keep our system safe from threats. Even tho we don't have so many services open to the world, one bug is enough to allow attackers to break into our system.
 
@@ -499,12 +536,27 @@ apt install -y unattended-upgrades
 
 The default set up of this package installs security updates for the current release. If you want to update all packages when available, take a look at the `/etc/apt/apt.conf.d/50unattended-upgrades`.
 
-To test the package behaviour, we can run:
+To test the package behavior, we can run:
+
 ```shell
 unattended-upgrade --debug --dry-run
 ```
 
-## Log rotate
+### Remote log server
+
+Nanopi has a very limited amount of store and it's preferable to send logs to a remote log server.
+
+The setup of a remote log server is out of the scope of this how-to but there are plenty of good documentation out there. We assume that you already have a server ready.
+
+Edit `/etc/rsyslog.conf` and add this at the beginning of the file:
+
+```shell
+*.- @@<LOG_SERVER_IP>:514
+```
+
+The two `@@` symbols indicates the usage of TCP protocol. Use only one symbol in case you need UDP.
+
+### Log rotate
 
 Armbian in NanoPi has the logs located in two directories. The first is a ramdisk (`/var/log/`) which is usually around 50MB size. This is definitely not enough to keep our logs for more than a week, and depending on how much connection we have a day will not even hold 24h of logs before you start getting errors such as:
 
@@ -531,6 +583,7 @@ nano /etc/logrotate.conf
 ```
 
 Replace the content of the file for this:
+
 ```config
 # rotate log files daily
 daily
@@ -591,7 +644,7 @@ The `-d` flag will list each log file it is considering to rotate.
 
 As Logrotate is set up to run daily via Cron we don't have to do any further change.
 
-## SSH hardening
+### SSH hardening
 
 These are just some good practices to hardening our SSH daemons, especially when they are publically available.
 
@@ -602,12 +655,7 @@ Add those lines somewhere inside the `/etc/ssh/sshd_config` file:
 PermitRootLogin no
 
 # Disable password authentication
-ChallengeResponseAuthentication no
 PasswordAuthentication no
-
-# Limit daemon to only listen on localhost (only for WireGuard client when we enable reverse SSH)
-ListenAddress ::1
-ListenAddress 127.0.0.1
 ```
 
 To apply the previous config, just restart the SSH daemon:
@@ -616,9 +664,9 @@ To apply the previous config, just restart the SSH daemon:
 systemctl restart ssh
 ```
 
-## Clean the system
+### Clean the system
 
-* Disable unused SystemD services
+- Disable unused SystemD services
 
   ```shell
   systemctl stop wpa_supplicant systemd-rfkill.service systemd-rfkill.socket hostapd
@@ -671,6 +719,6 @@ table ip nat {
 
 To build this guide, I've used several references, from blogs, other how-to and man pages.
 
-* [https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html](https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html)
-* [https://www.wireguard.com/quickstart/](https://www.wireguard.com/quickstart/)
-* [https://danrl.com/blog/2016/travel-wifi/](https://danrl.com/blog/2016/travel-wifi/)
+- [https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html](https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html)
+- [https://www.wireguard.com/quickstart/](https://www.wireguard.com/quickstart/)
+- [https://danrl.com/blog/2016/travel-wifi/](https://danrl.com/blog/2016/travel-wifi/)
