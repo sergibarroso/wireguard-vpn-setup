@@ -118,6 +118,9 @@ Run the steps below on both NanoPi:
   # Set DNS resolver to our VPN client, preventing DNS leaks.
   DNS = 10.222.0.2
 
+  # Set MTU
+  MTU = 1420
+
   # Enable ip forwarding in all interfaces
   PreUp = sysctl -w net.ipv4.ip_forward=1
 
@@ -144,7 +147,7 @@ Run the steps below on both NanoPi:
 
   Pay attention to the `<CLIENT_PUBLIC_KEY>` because we still don't have this. **Caution: don't use the one from the server**.
 
-  Replace `<LAN_NETWORK_INTERFACE>` for the name of the interface where the server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
+  Replace `<LAN_NETWORK_INTERFACE>` for the name of the interface where the server is connected. On the NanoPi R2S, `end0` is the WAN port and `lan0` is the LAN port, set the one you're using.
 
 ## WireGuard Client Setup
 
@@ -190,6 +193,9 @@ Run the steps below on both NanoPi:
   # The IP address that this client will have on the WireGuard network.
   Address = 10.222.0.2/24
 
+  # Set MTU
+  MTU = 1492
+
   # The private key you generated for the client previously.
   PrivateKey = <CLIENT_PRIVATE_KEY>
 
@@ -210,7 +216,7 @@ Run the steps below on both NanoPi:
   Endpoint = <SERVER_PUBLIC_ENDPOINT>:<SERVER_PUBLIC_PORT>
 
   # The subnet this WireGuard VPN is in control of.
-  AllowedIPs = 10.222.0.1/32
+  AllowedIPs = 0.0.0.0/0
 
   # Ensures that your home router does not kill the tunnel, by sending a ping
   # every 25 seconds.
@@ -222,7 +228,7 @@ Run the steps below on both NanoPi:
   `<SERVER_PUBLIC_KEY>` with the public key generated in the server machine.
   `<SERVER_PUBLIC_ENDPOINT>` with the public DNS name of the WireGuard server.
   `<SERVER_PUBLIC_PORT>` with the port exposed on the server network.
-  `<LAN_NETWORK_INTERFACE>` for the name of the interface where the server is connected. On the NanoPi R2S, `eth0` is the WAN port and `lan0` is the LAN port, set the one you're using.
+  `<LAN_NETWORK_INTERFACE>` for the name of the interface where the server is connected. On the NanoPi R2S, `end0` is the WAN port and `lan0` is the LAN port, set the one you're using.
 
 - Now that we've set up both server and client we can start WireGuard on both machines:
 
@@ -400,7 +406,7 @@ A watchdog is an electronic timer used for monitoring hardware and software func
 
 We use a watchdog to make sure we have a functional VPN. If a problem comes up, the computer should be able to recover itself back to a functional state. We will configure the board to reboot if WireGuard link is down for too long, or a specific process isn’t running anymore.
 
-#### Setup the watchdog software
+#### Set up the watchdog software
 
 - Install the watchdog software
 
@@ -435,96 +441,6 @@ We use a watchdog to make sure we have a functional VPN. If a problem comes up, 
   systemctl enable watchdog
   systemctl start watchdog
   ```
-
-### Reverse SSH to WireGuard Client
-
-As we want to be able to control the WireGuard client box from our local network without relying on the VPN network, this solution setups up a reverse SSH tunnel.
-
-To achieve that we're going to use Sidedoor. Additionally, find the official repo and documentation [here](https://github.com/daradib/sidedoor)
-
-Sidedoor set up is very straight forward:
-
-- Installation **(on the client box)**
-
-  ```shell
-  apt install sidedoor
-  ```
-
-- Generate SSH private key to access the remote server **(on the client box)**
-
-  ```shell
-  ssh-keygen -t rsa -N '' -f /etc/sidedoor/id_rsa
-  ```
-
-- Edit Sidedoor configuration file **(on the client box)**
-
-  ```shell
-  nano /etc/default/sidedoor
-  ```
-
-  We've to change `OPTIONS` and `REMOTE_SERVER`. So, for `OPTIONS` use:
-
-  ```shell
-  OPTIONS='-R <WIREGUARD_CLIENT_PUBLIC_DNS>:<BIND_PORT_ON_WIREGUARD_SERVER>:localhost:<WIREGUARD_CLIENT_SSHD_PORT> -p <WIREGUARD_SERVER_PUBLIC_PORT>'
-  ```
-
-  `<WIREGUARD_CLIENT_PUBLIC_DNS>`: The public DNS/IP for the WireGuard client box.
-
-  `<BIND_PORT_ON_WIREGUARD_SERVER>`: The port where WireGuard client SSHD will be bound on WireGuard server. Choose something higher than 1024.
-
-  `<WIREGUARD_CLIENT_SSHD_PORT>`: The port where SSHD is listening on the WireGuard client, usually 22.
-
-  `<WIREGUARD_SERVER_PUBLIC_PORT>`: The public port where SSHD for WireGuard server box is exposed. In case it's the standard 22 you can just remove the -p option.
-
-  For `REMOTE_SERVER` use:
-
-  ```shell
-  REMOTE_SERVER=<USER>@<WIREGUARD_SERVER_PUBLIC_DNS>
-  ```
-
-  `<USER>`: user to log in on WireGuard server box.
-
-  `<WIREGUARD_SERVER_PUBLIC_DNS>`: The public DNS/IP for the WireGuard server box.
-
-- Add WireGuard public key to WireGuard server **(on the server box)**
-
-  To make the tunnel working without any user interaction, we've to enable public-key authentication to WireGuard Server's SSH daemon.
-  To do that, copy the content of the file `/etc/sidedoor/id_rsa.pub` on the WireGuard client box and paste it inside the desired user's `~/.ssh/authorized_keys` file inside WireGuard server box.
-
-- Enable forwarded ports on SSH daemon **(on the server box)**
-
-  SSH doesn’t by default allow remote hosts to forwarded ports. We're going to enable this only to the desired user by editing `/etc/ssh/sshd_config`:
-
-  ```shell
-  nano /etc/ssh/sshd_config
-  ```
-
-  Add the following lines at the bottom of the file:
-
-  ```shell
-  Match User <USER>
-  GatewayPorts yes
-  ```
-
-  `<USER>`: user specified on the Sidedoor config file.
-
-- Restart SSHD service **(on the server box)**
-
-  ```shell
-  systemctl restart ssh
-  ```
-
-- Restart the Sidedoor service to apply changes **(on the client box)**
-
-  ```shell
-  systemctl restart sidedoor
-  ```
-
-Now we can check Sidedoor output to see if there are any errors by `systemctl status sidedoor`, but if not, we're ready to go and we should be able to login into WireGuard client box from WireGuard server network by running:
-
-```shell
-ssh <USER>@<WIREGUARD_CLIENT_PUBLIC_DNS> -W localhost:<BIND_PORT_ON_WIREGUARD_SERVER> <USER>@<WIREGUARD_SERVER_LAN_IP>
-```
 
 ### Unattended security updates
 
@@ -642,7 +558,7 @@ logrotate -d /etc/logrotate.d/nanopi
 
 The `-d` flag will list each log file it is considering to rotate.
 
-As Logrotate is set up to run daily via Cron we don't have to do any further change.
+As Logrotate is set up to run daily via CronD we don't have to do any further change.
 
 ### SSH hardening
 
@@ -673,52 +589,9 @@ systemctl restart ssh
   systemctl disable wpa_supplicant systemd-rfkill.service systemd-rfkill.socket hostapd
   ```
 
-<!--
-## Firewall
-
-Edit the content of `/etc/iptables.conf` and add:
-
-```shell
-# firewall
-table ip filter {
-	# allow all packets sent by the firewall machine itself
-	chain output {
-		type filter hook output priority 100; policy accept;
-	}
-
-	# allow LAN to firewall, disallow WAN to firewall
-	chain input {
-		type filter hook input priority 0; policy accept;
-		iifname "lan0" accept
-		iifname "eth0" drop
-	}
-
-	# allow packets from LAN to WAN, and WAN to LAN if LAN initiated the connection
-	chain forward {
-		type filter hook forward priority 0; policy drop;
-		iifname "lan0" oifname "eth0" accept
-		iifname "eth0" oifname "lan0" ct state related,established accept
-	}
-}
-
-# NAT
-table ip nat {
-	chain prerouting {
-		type nat hook prerouting priority 0; policy accept;
-	}
-
-	# for all packets to WAN, after routing, replace source address with primary IP of WAN interface
-	chain postrouting {
-		type nat hook postrouting priority 100; policy accept;
-		oifname "wan0" masquerade
-	}
-}z
-``` -->
-
 # References
 
 To build this guide, I've used several references, from blogs, other how-to and man pages.
 
 - [https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html](https://zach.bloomqu.ist/blog/2019/11/site-to-site-wireguard-vpn.html)
 - [https://www.wireguard.com/quickstart/](https://www.wireguard.com/quickstart/)
-- [https://danrl.com/blog/2016/travel-wifi/](https://danrl.com/blog/2016/travel-wifi/)
