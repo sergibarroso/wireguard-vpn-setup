@@ -191,7 +191,7 @@ Run the steps below on both NanoPi:
   # Configuration for the client
 
   # The IP address that this client will have on the WireGuard network.
-  Address = 10.222.0.2/24
+  Address = 10.222.0.2/24,<LOCAL_IP_NET> # (Such as 192.168.1.0/24)
 
   # Set MTU
   MTU = 1492
@@ -202,7 +202,8 @@ Run the steps below on both NanoPi:
   # Enable traffic to be passed from the server network to the private subnet of the client
   PreUp = sysctl -w net.ipv4.ip_forward=1
   PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
-
+  PostUp = iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+  
   PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o <LAN_NETWORK_INTERFACE> -j MASQUERADE
   PostDown = sysctl -w net.ipv4.ip_forward=0
 
