@@ -45,7 +45,7 @@ Run the steps below on both NanoPi:
 - Set the hostname (replace `<NEW_HOSTNAME>` with the name you desire)
 
   ```shell
-  sed -i "s/$HOSTNAME/<NEW_HOSTNAME>/g" /etc/hostname /etc/hosts
+  hostnamectl set-hostname <NEW_HOSTNAME>
   ```
 
 - Upgrade the system to the latest version of all packages by running:
@@ -356,7 +356,7 @@ We have to run this in both boxes with different names (of course).
 To test the network bandwidth between the two Wireguard nodes we will use [iperf3](https://iperf.fr). Meaning, we will need to install it on both, the Wireguard client and the server:
 
 ```shell
-sudo apt install iperf3
+apt install -y iperf3
 ```
 
 Once we have the tool installed we can proceed by running the following command on the Wireguard client to listed to iperf requests:
@@ -412,7 +412,7 @@ We use a watchdog to make sure we have a functional VPN. If a problem comes up, 
 - Install the watchdog software
 
   ```shell
-  apt install watchdog
+  apt install -y watchdog
   ```
 
 - Configure the watchdog to monitor WireGuard network
